@@ -16,11 +16,10 @@
     <h1>工作日志</h1>
     <div class="context-bar" id="context-bar">
       <span id="weather-display"></span>
-      <span id="location-display"></span>
     </div>
     <div class="date-nav">
       <button id="prev-day" class="icon-btn">&#8249;</button>
-      <span id="current-date"></span>
+      <input type="date" id="date-picker">
       <button id="next-day" class="icon-btn">&#8250;</button>
     </div>
   </header>
@@ -28,7 +27,7 @@
   <main>
     <section id="tab-tasks" class="tab active">
       <div class="add-task">
-        <input type="text" id="task-input" placeholder="添加新任务..." maxlength="200">
+        <input type="text" id="task-input" placeholder="添加新任务..." maxlength="200" autocomplete="off">
         <button id="add-btn">+</button>
       </div>
       <ul id="task-list"></ul>
@@ -67,7 +66,7 @@
 
     <section id="tab-long" class="tab">
       <div class="add-task">
-        <input type="text" id="long-task-input" placeholder="添加长期待办任务..." maxlength="200">
+        <input type="text" id="long-task-input" placeholder="添加长期待办任务..." maxlength="200" autocomplete="off">
         <button id="add-long-btn">+</button>
       </div>
       <ul id="long-task-list"></ul>
@@ -100,10 +99,6 @@
       <span>历史</span>
     </button>
   </nav>
-
-  <div class="modal-overlay" id="modal-overlay">
-    <div class="modal" id="modal-content"></div>
-  </div>
 
   <script src="/app.js"></script>
   <script>

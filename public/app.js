@@ -4,19 +4,10 @@ let longTasks = [];
 let mediaRecorder = null;
 let audioChunks = [];
 let saveTimeout = null;
+let modalEl = null;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatDate(str) {
-  const d = new Date(str + 'T00:00:00');
-  const today = new Date(todayStr() + 'T00:00:00');
-  const diff = (today - d) / 86400000;
-  if (diff === 0) return '今天';
-  if (diff === 1) return '昨天';
-  if (diff === -1) return '明天';
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 function formatDateFull(str) {
@@ -46,12 +37,15 @@ async function api(path, opts = {}) {
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
 
 // Tasks
 async function loadTasks() {
-  tasks = await api(`/api/tasks?date=${currentDate}`);
+  try {
+    tasks = await api(`/api/tasks?date=${currentDate}`);
+  } catch (e) { tasks = []; }
   renderTasks();
   updateJournalStats();
 }
@@ -60,20 +54,26 @@ async function addTask() {
   const input = document.getElementById('task-input');
   const content = input.value.trim();
   if (!content) return;
-  await api('/api/tasks', { method: 'POST', body: JSON.stringify({ content, date: currentDate }) });
   input.value = '';
-  loadTasks();
+  try {
+    await api('/api/tasks', { method: 'POST', body: JSON.stringify({ content, date: currentDate }) });
+    loadTasks();
+  } catch (e) { input.value = content; alert('添加失败: ' + e.message); }
 }
 
-async function updateTask(id, status) {
-  await api(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-  loadTasks();
-}
+window.updateTask = async function(id, status) {
+  try {
+    await api(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    loadTasks();
+  } catch (e) { console.error(e); }
+};
 
-async function deleteTask(id) {
-  await api(`/api/tasks/${id}`, { method: 'DELETE' });
-  loadTasks();
-}
+window.deleteTask = async function(id) {
+  try {
+    await api(`/api/tasks/${id}`, { method: 'DELETE' });
+    loadTasks();
+  } catch (e) { console.error(e); }
+};
 
 function renderTasks() {
   const list = document.getElementById('task-list');
@@ -100,7 +100,9 @@ function renderTasks() {
 
 // Long-term tasks
 async function loadLongTasks() {
-  longTasks = await api('/api/long-tasks');
+  try {
+    longTasks = await api('/api/long-tasks');
+  } catch (e) { longTasks = []; }
   renderLongTasks();
 }
 
@@ -108,20 +110,26 @@ async function addLongTask() {
   const input = document.getElementById('long-task-input');
   const content = input.value.trim();
   if (!content) return;
-  await api('/api/long-tasks', { method: 'POST', body: JSON.stringify({ content }) });
   input.value = '';
-  loadLongTasks();
+  try {
+    await api('/api/long-tasks', { method: 'POST', body: JSON.stringify({ content }) });
+    loadLongTasks();
+  } catch (e) { input.value = content; alert('添加失败: ' + e.message); }
 }
 
-async function updateLongTask(id, status) {
-  await api(`/api/long-tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-  loadLongTasks();
-}
+window.updateLongTask = async function(id, status) {
+  try {
+    await api(`/api/long-tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    loadLongTasks();
+  } catch (e) { console.error(e); }
+};
 
-async function deleteLongTask(id) {
-  await api(`/api/long-tasks/${id}`, { method: 'DELETE' });
-  loadLongTasks();
-}
+window.deleteLongTask = async function(id) {
+  try {
+    await api(`/api/long-tasks/${id}`, { method: 'DELETE' });
+    loadLongTasks();
+  } catch (e) { console.error(e); }
+};
 
 function renderLongTasks() {
   const list = document.getElementById('long-task-list');
@@ -147,16 +155,20 @@ function renderLongTasks() {
 
 // Journal
 async function loadJournal() {
-  const entry = await api(`/api/journal?date=${currentDate}`);
-  document.getElementById('journal-content').value = entry.content || '';
+  try {
+    const entry = await api(`/api/journal?date=${currentDate}`);
+    document.getElementById('journal-content').value = entry.content || '';
+  } catch (e) { document.getElementById('journal-content').value = ''; }
 }
 
 async function saveJournal() {
   const content = document.getElementById('journal-content').value;
-  await api('/api/journal', { method: 'PUT', body: JSON.stringify({ date: currentDate, content }) });
-  const msg = document.getElementById('journal-saved');
-  msg.classList.add('show');
-  setTimeout(() => msg.classList.remove('show'), 2000);
+  try {
+    await api('/api/journal', { method: 'PUT', body: JSON.stringify({ date: currentDate, content }) });
+    const msg = document.getElementById('journal-saved');
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2000);
+  } catch (e) { console.error(e); }
 }
 
 function updateJournalStats() {
@@ -170,60 +182,41 @@ function updateJournalStats() {
   `;
 }
 
-// Weather & Location
-async function loadContext() {
-  const ctx = await api(`/api/context?date=${currentDate}`);
-  if (ctx.weather) {
-    document.getElementById('weather-display').textContent = ctx.weather;
+// Weather - Shanghai hardcoded
+async function loadWeather() {
+  try {
+    const weather = await api('/api/weather?lat=31.2304&lon=121.4737');
+    let weatherText = '';
+    if (weather.desc) weatherText += weather.desc;
+    if (weather.temp) weatherText += ` ${weather.temp}°C`;
+    if (weather.humidity) weatherText += ` | 湿度${weather.humidity}%`;
+    if (weather.wind) weatherText += ` | 风速${weather.wind}km/h`;
+    document.getElementById('weather-display').textContent = weatherText || '🌤 上海';
+  } catch (e) {
+    document.getElementById('weather-display').textContent = '🌤 上海';
   }
-  if (ctx.location) {
-    document.getElementById('location-display').textContent = '📍 ' + ctx.location;
-  }
-}
-
-async function fetchWeather() {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const { latitude, longitude } = pos.coords;
-    try {
-      const weather = await api(`/api/weather?lat=${latitude}&lon=${longitude}`);
-      let weatherText = '';
-      if (weather.temp) weatherText += `${weather.temp}°C `;
-      if (weather.desc) weatherText += weather.desc;
-      if (weather.humidity) weatherText += ` | 湿度${weather.humidity}%`;
-      document.getElementById('weather-display').textContent = weatherText;
-      await api('/api/context', {
-        method: 'PUT',
-        body: JSON.stringify({
-          date: currentDate,
-          weather: weatherText,
-          location: '',
-          latitude,
-          longitude
-        })
-      });
-    } catch (e) { /* weather unavailable */ }
-  }, () => { /* location denied */ }, { timeout: 10000 });
 }
 
 // Media
 async function loadMedia() {
-  const entries = await api(`/api/media?date=${currentDate}`);
-  const gallery = document.getElementById('media-gallery');
-  if (entries.length === 0) {
-    gallery.innerHTML = '';
-    return;
-  }
-  gallery.innerHTML = entries.map(e => {
-    const isImage = e.type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(e.filename);
-    return `
-      <div class="media-thumb" onclick="openMedia('${e.filename}', '${e.type}')">
-        ${isImage ? `<img src="/uploads/${e.filename}" alt="">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">${e.type === 'audio' ? '🎙' : '🎬'}</div>`}
-        <span class="media-type-label">${e.type}</span>
-        <button class="delete-media" onclick="event.stopPropagation();deleteMedia(${e.id})">×</button>
-      </div>
-    `;
-  }).join('');
+  try {
+    const entries = await api(`/api/media?date=${currentDate}`);
+    const gallery = document.getElementById('media-gallery');
+    if (entries.length === 0) {
+      gallery.innerHTML = '';
+      return;
+    }
+    gallery.innerHTML = entries.map(e => {
+      const isImage = e.type === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(e.filename);
+      return `
+        <div class="media-thumb" onclick="openMedia('${e.filename}', '${e.type}')">
+          ${isImage ? `<img src="/uploads/${e.filename}" alt="" loading="lazy">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">${e.type === 'audio' ? '🎙' : '🎬'}</div>`}
+          <span class="media-type-label">${e.type}</span>
+          <button class="delete-media" onclick="event.stopPropagation();deleteMedia(${e.id})">×</button>
+        </div>
+      `;
+    }).join('');
+  } catch (e) { document.getElementById('media-gallery').innerHTML = ''; }
 }
 
 async function uploadFile(file) {
@@ -260,58 +253,93 @@ function stopRecording() {
   }
 }
 
-async function deleteMedia(id) {
-  await api(`/api/media/${id}`, { method: 'DELETE' });
-  loadMedia();
+window.deleteMedia = async function(id) {
+  try {
+    await api(`/api/media/${id}`, { method: 'DELETE' });
+    loadMedia();
+  } catch (e) { console.error(e); }
+};
+
+// Modal (created dynamically to avoid overlay detection)
+function createModal() {
+  if (modalEl) return;
+  modalEl = document.createElement('div');
+  modalEl.className = 'modal-overlay';
+  modalEl.id = 'modal-overlay';
+  modalEl.innerHTML = '<div class="modal" id="modal-content"></div>';
+  document.body.appendChild(modalEl);
+  modalEl.addEventListener('click', e => {
+    if (e.target === modalEl) closeModal();
+  });
 }
 
-function openMedia(filename, type) {
-  const overlay = document.getElementById('modal-overlay');
-  const content = document.getElementById('modal-content');
+window.openMedia = function(filename, type) {
+  createModal();
+  const content = modalEl.querySelector('#modal-content');
   const ext = filename.split('.').pop().toLowerCase();
   const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
   content.innerHTML = `
     <h3>${isImage ? '图片' : type}</h3>
-    ${isImage ? `<img src="/uploads/${filename}" alt="">` : `<p style="text-align:center;font-size:48px;padding:40px 0;">${type === 'audio' ? '🎙' : '🎬'}</p><p style="text-align:center;color:var(--text-muted)">${filename}</p>`}
+    ${isImage ? `<img src="/uploads/${filename}" alt="">` : `<p style="text-align:center;font-size:48px;padding:40px 0;">${type === 'audio' ? '🎙' : '🎬'}</p><p style="text-align:center;color:var(--text-muted)">${escapeHtml(filename)}</p>`}
     <button class="modal-close" onclick="closeModal()">关闭</button>
   `;
-  overlay.classList.add('show');
-}
+  modalEl.classList.add('show');
+};
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('show');
-}
+window.closeModal = function() {
+  if (modalEl) modalEl.classList.remove('show');
+};
 
 // History
 async function loadHistory() {
-  const entries = await api('/api/history?limit=30');
-  const container = document.getElementById('history-list');
-  if (entries.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>还没有历史日志</p><p class="hint">保存日志后会显示在这里</p></div>';
-    return;
-  }
-  container.innerHTML = entries.map(e => `
-    <div class="history-item" data-date="${e.date}">
-      <div class="history-date">${formatDateFull(e.date)}</div>
-      ${e.content ? `<div class="history-preview">${escapeHtml(e.content)}</div>` : '<div class="history-preview" style="color:var(--text-muted)">未写日志</div>'}
-      <div class="history-meta">
-        <span class="history-stats">${e.completed_tasks}/${e.total_tasks} 任务完成</span>
-        ${e.weather ? `<span class="history-weather">${escapeHtml(e.weather)}</span>` : ''}
-        ${e.location ? `<span class="history-location">📍${escapeHtml(e.location)}</span>` : ''}
+  try {
+    const entries = await api('/api/history?limit=30');
+    const container = document.getElementById('history-list');
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="empty-state"><p>还没有历史日志</p><p class="hint">保存日志后会显示在这里</p></div>';
+      return;
+    }
+    container.innerHTML = entries.map(e => `
+      <div class="history-item" data-date="${e.date}">
+        <div class="history-date">${formatDateFull(e.date)}</div>
+        ${e.content ? `<div class="history-preview">${escapeHtml(e.content)}</div>` : '<div class="history-preview" style="color:var(--text-muted)">未写日志</div>'}
+        <div class="history-meta">
+          <span class="history-stats">${e.completed_tasks}/${e.total_tasks} 任务完成</span>
+          ${e.weather ? `<span class="history-weather">${escapeHtml(e.weather)}</span>` : ''}
+        </div>
       </div>
-    </div>
-  `).join('');
+    `).join('');
 
-  container.querySelectorAll('.history-item').forEach(el => {
-    el.addEventListener('click', () => {
-      currentDate = el.dataset.date;
-      updateDateDisplay();
-      loadTasks();
-      loadJournal();
-      loadContext();
-      switchTab('journal');
+    container.querySelectorAll('.history-item').forEach(el => {
+      el.addEventListener('click', () => {
+        currentDate = el.dataset.date;
+        updateDateDisplay();
+        loadAll();
+      });
     });
-  });
+  } catch (e) { console.error(e); }
+}
+
+// Date
+function updateDateDisplay() {
+  const picker = document.getElementById('date-picker');
+  picker.value = currentDate;
+  document.getElementById('next-day').style.opacity = currentDate === todayStr() ? '0.3' : '1';
+}
+
+function onDateChange() {
+  const picker = document.getElementById('date-picker');
+  if (picker.value) {
+    currentDate = picker.value;
+    loadAll();
+  }
+}
+
+function loadAll() {
+  loadTasks();
+  loadJournal();
+  loadMedia();
+  loadHistory();
 }
 
 // Tab switching
@@ -322,65 +350,68 @@ function switchTab(name) {
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
 }
 
-function updateDateDisplay() {
-  document.getElementById('current-date').textContent = formatDateFull(currentDate);
-  document.getElementById('next-day').style.opacity = currentDate === todayStr() ? '0.3' : '1';
-}
-
 // Event listeners
-document.getElementById('add-btn').addEventListener('click', addTask);
-document.getElementById('task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
-document.getElementById('add-long-btn').addEventListener('click', addLongTask);
-document.getElementById('long-task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addLongTask(); });
-document.getElementById('save-journal').addEventListener('click', saveJournal);
-document.getElementById('prev-day').addEventListener('click', () => {
-  currentDate = shiftDate(currentDate, -1);
-  updateDateDisplay();
-  loadTasks(); loadJournal(); loadContext(); loadMedia();
-});
-document.getElementById('next-day').addEventListener('click', () => {
-  if (currentDate === todayStr()) return;
-  currentDate = shiftDate(currentDate, 1);
-  updateDateDisplay();
-  loadTasks(); loadJournal(); loadContext(); loadMedia();
-});
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-});
-document.getElementById('journal-content').addEventListener('input', () => {
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(saveJournal, 2000);
-});
+function setupEvents() {
+  // Task input
+  document.getElementById('add-btn').addEventListener('click', addTask);
+  document.getElementById('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addTask(); }
+  });
 
-// Media events
-document.getElementById('record-btn').addEventListener('click', startRecording);
-document.getElementById('stop-record').addEventListener('click', stopRecording);
-document.getElementById('camera-btn').addEventListener('click', () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.capture = 'environment';
-  input.onchange = () => { if (input.files[0]) uploadFile(input.files[0]); };
-  input.click();
-});
-document.getElementById('upload-btn').addEventListener('click', () => {
-  document.getElementById('file-input').click();
-});
-document.getElementById('file-input').addEventListener('change', () => {
-  if (document.getElementById('file-input').files[0]) {
-    uploadFile(document.getElementById('file-input').files[0]);
-  }
-});
-document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
-});
+  // Long task input
+  document.getElementById('add-long-btn').addEventListener('click', addLongTask);
+  document.getElementById('long-task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); addLongTask(); }
+  });
+
+  // Date navigation
+  document.getElementById('prev-day').addEventListener('click', () => {
+    currentDate = shiftDate(currentDate, -1);
+    updateDateDisplay();
+    loadAll();
+  });
+  document.getElementById('next-day').addEventListener('click', () => {
+    if (currentDate === todayStr()) return;
+    currentDate = shiftDate(currentDate, 1);
+    updateDateDisplay();
+    loadAll();
+  });
+  document.getElementById('date-picker').addEventListener('change', onDateChange);
+
+  // Journal
+  document.getElementById('save-journal').addEventListener('click', saveJournal);
+  document.getElementById('journal-content').addEventListener('input', () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveJournal, 2000);
+  });
+
+  // Tabs
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Media
+  document.getElementById('record-btn').addEventListener('click', startRecording);
+  document.getElementById('stop-record').addEventListener('click', stopRecording);
+  document.getElementById('camera-btn').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = () => { if (input.files[0]) uploadFile(input.files[0]); };
+    input.click();
+  });
+  document.getElementById('upload-btn').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+  document.getElementById('file-input').addEventListener('change', () => {
+    const f = document.getElementById('file-input').files[0];
+    if (f) uploadFile(f);
+  });
+}
 
 // Init
 updateDateDisplay();
-loadTasks();
-loadJournal();
-loadContext();
-loadMedia();
-loadHistory();
-loadLongTasks();
-fetchWeather();
+loadWeather();
+setupEvents();
+loadAll();

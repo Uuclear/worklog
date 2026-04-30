@@ -56,17 +56,26 @@ header h1 { font-size: 18px; font-weight: 600; color: var(--primary-light); }
 .date-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-top: 6px;
 }
 
-.date-nav span {
-  font-size: 15px;
+#date-picker {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   color: var(--primary);
-  font-weight: 500;
-  min-width: 120px;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
   text-align: center;
+  font-weight: 500;
+  font-family: inherit;
+  color-scheme: dark;
+  outline: none;
 }
+
+#date-picker:focus { border-color: var(--primary); }
 
 .icon-btn {
   background: var(--bg-input);
@@ -80,6 +89,7 @@ header h1 { font-size: 18px; font-weight: 600; color: var(--primary-light); }
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 main { padding: 16px; }
@@ -411,13 +421,13 @@ main { padding: 16px; }
 
 .media-thumb:hover .delete-media { display: block; }
 
-/* Modal */
+/* Modal - must not use position:fixed when hidden to avoid Android overlay detection */
 .modal-overlay {
   display: none;
+  z-index: 200;
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.8);
-  z-index: 200;
   justify-content: center;
   align-items: center;
 }
