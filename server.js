@@ -65,7 +65,20 @@ db.exec(`
 `);
 
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve static files with cache control
+const publicPath = path.join(__dirname, 'public');
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html' || req.path === '/sw.js') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  } else if (req.path.endsWith('.html') || req.path.endsWith('.css') || req.path.endsWith('.js')) {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+  next();
+});
+app.use(express.static(publicPath));
 app.use('/uploads', express.static(uploadsDir));
 
 const getToday = () => new Date().toISOString().slice(0, 10);
