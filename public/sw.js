@@ -1,4 +1,4 @@
-const CACHE_NAME = 'worklog-v4';
+const CACHE_NAME = 'worklog-v5';
 const ASSETS = ['/', '/index.html?v=3', '/style.css?v=3', '/app.js?v=3', '/manifest.json?v=3', '/logo.png'];
 
 self.addEventListener('install', e => {

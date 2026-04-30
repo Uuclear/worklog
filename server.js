@@ -165,15 +165,17 @@ app.get('/api/context', (req, res) => {
 app.put('/api/context', (req, res) => {
   const { date, weather, location, latitude, longitude } = req.body;
   const d = date || getToday();
+  const lat = latitude ?? 0;
+  const lon = longitude ?? 0;
   const existing = db.prepare('SELECT id FROM daily_context WHERE date = ?').get(d);
   if (existing) {
     db.prepare(
       'UPDATE daily_context SET weather=?, location=?, latitude=?, longitude=?, updated_at=CURRENT_TIMESTAMP WHERE date=?'
-    ).run(weather || '', location || '', latitude, longitude, d);
+    ).run(weather || '', location || '', lat, lon, d);
   } else {
     db.prepare(
       'INSERT INTO daily_context (date, weather, location, latitude, longitude) VALUES (?, ?, ?, ?, ?)'
-    ).run(d, weather || '', location || '', latitude, longitude);
+    ).run(d, weather || '', location || '', lat, lon);
   }
   res.json(db.prepare('SELECT * FROM daily_context WHERE date = ?').get(d));
 });

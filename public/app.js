@@ -181,8 +181,24 @@ function updateJournalStats() {
   `;
 }
 
-// Weather - Shanghai hardcoded
-async function loadWeather() {
+// Weather & Context - shows weather for the selected date
+async function loadContext() {
+  try {
+    const ctx = await api(`/api/context?date=${currentDate}`);
+    if (ctx.weather) {
+      document.getElementById('weather-display').textContent = ctx.weather;
+      return;
+    }
+  } catch (e) { /* no context */ }
+  // No weather stored - fetch current (for today only) or just show Shanghai
+  if (currentDate === todayStr()) {
+    fetchAndSaveWeather();
+  } else {
+    document.getElementById('weather-display').textContent = '🌤 上海 (无记录)';
+  }
+}
+
+async function fetchAndSaveWeather() {
   try {
     const weather = await api('/api/weather?lat=31.2304&lon=121.4737');
     let weatherText = '';
@@ -190,7 +206,13 @@ async function loadWeather() {
     if (weather.temp) weatherText += ` ${weather.temp}°C`;
     if (weather.humidity) weatherText += ` | 湿度${weather.humidity}%`;
     if (weather.wind) weatherText += ` | 风速${weather.wind}km/h`;
-    document.getElementById('weather-display').textContent = weatherText || '🌤 上海';
+    if (!weatherText) weatherText = '🌤 上海';
+    document.getElementById('weather-display').textContent = weatherText;
+    // Save to today's context
+    await api('/api/context', {
+      method: 'PUT',
+      body: JSON.stringify({ date: todayStr(), weather: weatherText })
+    });
   } catch (e) {
     document.getElementById('weather-display').textContent = '🌤 上海';
   }
@@ -335,7 +357,8 @@ function updateDateDisplay() {
   const picker = document.getElementById('date-picker');
   settingDateProgrammatically = true;
   picker.value = currentDate;
-  settingDateProgrammatically = false;
+  // Reset flag after event loop processes the change event
+  setTimeout(() => { settingDateProgrammatically = false; }, 0);
   document.getElementById('next-day').style.opacity = currentDate === todayStr() ? '0.3' : '1';
 }
 
@@ -344,7 +367,6 @@ function onDateChange() {
   const picker = document.getElementById('date-picker');
   if (picker.value) {
     currentDate = picker.value;
-    updateDateDisplay();
     loadAll();
   }
 }
@@ -354,6 +376,7 @@ function loadAll() {
   loadJournal();
   loadMedia();
   loadHistory();
+  loadContext();
 }
 
 // Tab switching
@@ -426,6 +449,6 @@ function setupEvents() {
 
 // Init
 updateDateDisplay();
-loadWeather();
+loadContext();
 setupEvents();
 loadAll();
