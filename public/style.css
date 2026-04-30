@@ -165,16 +165,22 @@ main { padding: 16px; }
 }
 
 .task-btn {
-  background: none;
-  border: none;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
-  font-size: 13px;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 20px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.task-btn:active { background: var(--bg-input); }
+.task-btn:active { background: var(--border); }
 .task-btn.complete-btn { color: var(--success); }
 .task-btn.skip-btn { color: var(--warning); }
 .task-btn.delete-btn { color: var(--danger); }

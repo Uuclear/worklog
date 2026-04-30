@@ -5,6 +5,7 @@ let mediaRecorder = null;
 let audioChunks = [];
 let saveTimeout = null;
 let modalEl = null;
+let settingDateProgrammatically = false;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -88,10 +89,8 @@ function renderTasks() {
     <li class="task-item ${t.status}" data-id="${t.id}">
       <span class="task-text">${escapeHtml(t.content)}</span>
       <div class="task-actions">
-        ${t.status === 'pending' ? `
-          <button class="task-btn complete-btn" onclick="updateTask(${t.id}, 'completed')">✓</button>
-          <button class="task-btn skip-btn" onclick="updateTask(${t.id}, 'skipped')">⟳</button>
-        ` : ''}
+        <button class="task-btn complete-btn" onclick="updateTask(${t.id}, '${t.status === 'completed' ? 'pending' : 'completed'}')">${t.status === 'completed' ? '↩' : '✓'}</button>
+        <button class="task-btn skip-btn" onclick="updateTask(${t.id}, '${t.status === 'skipped' ? 'pending' : 'skipped'}')">${t.status === 'skipped' ? '↩' : '⟳'}</button>
         <button class="task-btn delete-btn" onclick="deleteTask(${t.id})">×</button>
       </div>
     </li>
@@ -278,11 +277,22 @@ window.openMedia = function(filename, type) {
   const content = modalEl.querySelector('#modal-content');
   const ext = filename.split('.').pop().toLowerCase();
   const isImage = ['jpg','jpeg','png','gif','webp'].includes(ext);
-  content.innerHTML = `
-    <h3>${isImage ? '图片' : type}</h3>
-    ${isImage ? `<img src="/uploads/${filename}" alt="">` : `<p style="text-align:center;font-size:48px;padding:40px 0;">${type === 'audio' ? '🎙' : '🎬'}</p><p style="text-align:center;color:var(--text-muted)">${escapeHtml(filename)}</p>`}
-    <button class="modal-close" onclick="closeModal()">关闭</button>
-  `;
+  const isAudio = ['mp3','wav','webm','ogg'].includes(ext) || type === 'audio';
+  const isVideo = ['mp4','webm','mov'].includes(ext) || type === 'video';
+  let bodyHtml = '';
+  if (isImage) {
+    bodyHtml = `<h3>图片</h3><img src="/uploads/${filename}" alt="">`;
+  } else if (isAudio) {
+    bodyHtml = `<h3>录音</h3>
+      <div style="padding:20px 0;text-align:center">
+        <audio controls autoplay style="width:100%" src="/uploads/${filename}"></audio>
+      </div>`;
+  } else if (isVideo) {
+    bodyHtml = `<h3>视频</h3><video controls style="width:100%" src="/uploads/${filename}"></video>`;
+  } else {
+    bodyHtml = `<h3>${type}</h3><p style="text-align:center;color:var(--text-muted)">${escapeHtml(filename)}</p>`;
+  }
+  content.innerHTML = bodyHtml + '<button class="modal-close" onclick="closeModal()">关闭</button>';
   modalEl.classList.add('show');
 };
 
@@ -323,14 +333,18 @@ async function loadHistory() {
 // Date
 function updateDateDisplay() {
   const picker = document.getElementById('date-picker');
+  settingDateProgrammatically = true;
   picker.value = currentDate;
+  settingDateProgrammatically = false;
   document.getElementById('next-day').style.opacity = currentDate === todayStr() ? '0.3' : '1';
 }
 
 function onDateChange() {
+  if (settingDateProgrammatically) return;
   const picker = document.getElementById('date-picker');
   if (picker.value) {
     currentDate = picker.value;
+    updateDateDisplay();
     loadAll();
   }
 }
